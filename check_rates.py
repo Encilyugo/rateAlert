@@ -22,7 +22,7 @@ import requests
 
 PAIRS = [("NZD", "CNY"), ("NZD", "USD"), ("USD", "CNY")]
 TIMEZONE = "Asia/Shanghai"               # 默认北京时间，可改 "Pacific/Auckland"
-DAILY_BRIEF_HOUR = 8                     # 每日简报小时（本地时区，工作日 08:00）
+DAILY_BRIEF_HOUR = 11                     # 每日简报小时（本地时区，工作日 08:00）
 DAILY_BRIEF_WINDOW_HOURS = 2             # 简报命中窗口长度（防 cron 抖动）
 SUDDEN_MOVE_THRESHOLD_PCT = 2.0          # 跨日变化阈值 %
 HISTORY_WINDOW_DAYS = 180                # 极值滑动窗口天数
