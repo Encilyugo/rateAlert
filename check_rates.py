@@ -229,33 +229,48 @@ def push_all(title: str, message: str, priority: int = 5, tags: str = "money_wit
 
 # ==================== 检测器 ====================
 
+def format_pair_status(base: str, quote: str, history: dict) -> list[str]:
+    """生成单个币种对的两行状态文本，与日报一致"""
+    key = pair_key(base, quote)
+    h = history.get(key, {})
+    if not h:
+        return [f"{key}  (无数据)"]
+
+    sorted_dates = sorted(h.keys())
+    latest_date = sorted_dates[-1]
+    latest = h[latest_date]
+    prev_date = sorted_dates[-2] if len(sorted_dates) >= 2 else None
+    prev = h[prev_date] if prev_date else latest
+    change_pct = (latest - prev) / prev * 100 if prev else 0.0
+
+    mm = get_max_min(h, exclude_date=None)
+    if mm:
+        max_v, max_d, min_v, min_d = mm
+        position = (latest - min_v) / (max_v - min_v) * 100 if max_v > min_v else 50.0
+        return [
+            f"{key}  {latest:.4f}  {trend_arrow(change_pct)} {change_pct:+.2f}%",
+            f"          半年区间 [{min_v:.4f}, {max_v:.4f}]，当前位于 {position:.0f}%",
+        ]
+    return [f"{key}  {latest:.4f}"]
+
+
+def format_other_pairs(exclude_base: str, exclude_quote: str, history: dict) -> str:
+    """触发告警时附带的其它币种当前情况，完整版"""
+    exclude_key = pair_key(exclude_base, exclude_quote)
+    lines = ["—— 其它币种当前 ——"]
+    for base, quote in PAIRS:
+        if pair_key(base, quote) == exclude_key:
+            continue
+        lines.extend(format_pair_status(base, quote, history))
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def detect_daily_brief(history: dict) -> str:
     lines = [f"📊 汇率日报 {today_local_str()}", ""]
     for base, quote in PAIRS:
-        key = pair_key(base, quote)
-        h = history.get(key, {})
-        if not h:
-            lines.append(f"{key}  (无数据)")
-            lines.append("")
-            continue
-
-        sorted_dates = sorted(h.keys())
-        latest_date = sorted_dates[-1]
-        latest = h[latest_date]
-        prev_date = sorted_dates[-2] if len(sorted_dates) >= 2 else None
-        prev = h[prev_date] if prev_date else latest
-        change_pct = (latest - prev) / prev * 100 if prev else 0.0
-
-        mm = get_max_min(h, exclude_date=None)
-        if mm:
-            max_v, max_d, min_v, min_d = mm
-            position = (latest - min_v) / (max_v - min_v) * 100 if max_v > min_v else 50.0
-            lines.append(f"{key}  {latest:.4f}  {trend_arrow(change_pct)} {change_pct:+.2f}%")
-            lines.append(f"          半年区间 [{min_v:.4f}, {max_v:.4f}]，当前位于 {position:.0f}%")
-        else:
-            lines.append(f"{key}  {latest:.4f}")
+        lines.extend(format_pair_status(base, quote, history))
         lines.append("")
-
     return "\n".join(lines).rstrip()
 
 
@@ -294,9 +309,10 @@ def detect_sudden_move(base: str, quote: str, history: dict, state: dict) -> Opt
     direction = "上涨" if change_pct > 0 else "下跌"
     title = f"⚡ 汇率 {key} 大幅波动"
     message = (
-        f"{key} 跨日{direction} {abs(change_pct):.2f}%\n\n"
+        f"{today_local_str()} {key} 跨日{direction} {abs(change_pct):.2f}%\n\n"
         f"当前 {latest:.4f}（{prev_date}: {prev:.4f}）\n"
-        f"过去 {HISTORY_WINDOW_DAYS} 天内第 {count_in_window} 次单日波动 ≥ {SUDDEN_MOVE_THRESHOLD_PCT}%"
+        f"过去 {HISTORY_WINDOW_DAYS} 天内第 {count_in_window} 次单日波动 ≥ {SUDDEN_MOVE_THRESHOLD_PCT}%\n\n"
+        f"{format_other_pairs(base, quote, history)}"
     )
 
     state.setdefault("cooldowns", {})[cooldown_key] = datetime.now(ZoneInfo(TIMEZONE)).isoformat()
@@ -337,17 +353,19 @@ def detect_extreme(base: str, quote: str, history: dict, state: dict) -> Optiona
         change_from_low = (latest - min_v) / min_v * 100
         title = f"🚀 汇率 {key} 突破半年新高"
         message = (
-            f"{key} 当前 {latest:.4f}\n"
+            f"{today_local_str()} {key} 当前 {latest:.4f}\n"
             f"上一次半年高点：{max_d} 的 {max_v:.4f}\n"
-            f"距离 {HISTORY_WINDOW_DAYS} 天最低 {min_v:.4f}（{min_d}）涨幅 +{change_from_low:.2f}%"
+            f"距离 {HISTORY_WINDOW_DAYS} 天最低 {min_v:.4f}（{min_d}）涨幅 +{change_from_low:.2f}%\n\n"
+            f"{format_other_pairs(base, quote, history)}"
         )
     else:
         change_from_high = (latest - max_v) / max_v * 100
         title = f"📉 汇率 {key} 突破半年新低"
         message = (
-            f"{key} 当前 {latest:.4f}\n"
+            f"{today_local_str()} {key} 当前 {latest:.4f}\n"
             f"上一次半年低点：{min_d} 的 {min_v:.4f}\n"
-            f"距离 {HISTORY_WINDOW_DAYS} 天最高 {max_v:.4f}（{max_d}）跌幅 {change_from_high:.2f}%"
+            f"距离 {HISTORY_WINDOW_DAYS} 天最高 {max_v:.4f}（{max_d}）跌幅 {change_from_high:.2f}%\n\n"
+            f"{format_other_pairs(base, quote, history)}"
         )
 
     state.setdefault("cooldowns", {})[cooldown_key] = datetime.now(ZoneInfo(TIMEZONE)).isoformat()
@@ -361,7 +379,7 @@ def flush_pending_quiet_alerts(state: dict) -> None:
     if not pending or is_quiet_hours():
         return
 
-    lines = [f"🌙 夜间汇率汇总（{len(pending)} 条）", ""]
+    lines = [f"🌙 夜间汇率汇总 {today_local_str()}（{len(pending)} 条）", ""]
     for item in pending:
         lines.append(f"【{item['title']}】")
         lines.append(item["message"])
@@ -423,7 +441,7 @@ def main() -> int:
     if is_brief_window() and state.get("last_brief_date") != today_str:
         try:
             brief = detect_daily_brief(history)
-            push_all(f"汇率日报 {today_str}", brief, priority=2, tags="bar_chart")
+            push_all("汇率提醒：今日无要紧波动", brief, priority=2, tags="bar_chart")
             state["last_brief_date"] = today_str
             print(f"[BRIEF SENT] {today_str}")
         except Exception as e:
@@ -446,15 +464,16 @@ if __name__ == "__main__":
         tb = traceback.format_exc()
         print(f"[FATAL] {e}\n{tb}")
         try:
+            today = today_local_str()
             push_ntfy(
                 "⚠️ 汇率监控脚本异常",
-                f"脚本运行失败：\n{e}\n\n{tb[:500]}",
+                f"{today} 脚本运行失败：\n{e}\n\n{tb[:500]}",
                 priority=4,
                 tags="warning",
             )
             push_dingtalk(
                 "⚠️ 汇率监控脚本异常",
-                f"脚本运行失败：\n```\n{e}\n```\n\n{tb[:500]}",
+                f"{today} 脚本运行失败：\n```\n{e}\n```\n\n{tb[:500]}",
             )
         except Exception:
             pass
