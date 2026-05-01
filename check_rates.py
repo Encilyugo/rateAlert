@@ -438,7 +438,7 @@ def main() -> int:
         except Exception as e:
             print(f"[EXTREME ERROR] {base}/{quote}: {e}")
 
-    if is_brief_window() and state.get("last_brief_date") != today_str:
+    if state.get("last_brief_date") != today_str:
         try:
             brief = detect_daily_brief(history)
             push_all("汇率提醒：今日无要紧波动", brief, priority=2, tags="bar_chart")
