@@ -2,10 +2,10 @@
   "cooldowns": {
     "extreme_NZD/CNY_low": "2026-06-26T10:38:45.776016+08:00",
     "extreme_NZD/USD_low": "2026-06-24T10:34:28.224311+08:00",
-    "extreme_USD/CNY_low": "2026-06-15T10:57:14.676119+08:00",
+    "extreme_USD/CNY_low": "2026-07-31T10:03:01.104895+08:00",
     "sudden_move_NZD/CNY": "2026-04-28T12:38:25.211114+08:00",
     "sudden_move_NZD/USD": "2026-04-28T12:38:25.258273+08:00",
     "sudden_move_USD/CNY": "2026-04-28T12:38:25.289047+08:00"
   },
-  "last_brief_date": "2026-07-30"
+  "last_brief_date": "2026-07-31"
 }
